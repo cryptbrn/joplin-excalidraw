@@ -2,6 +2,7 @@ import * as React from "react";
 import * as ReactDOM from "react-dom";
 import * as ExcalidrawLib from "@excalidraw/excalidraw";
 import "./index.css";
+import "@excalidraw/excalidraw/index.css";
 
 declare global {
   const webviewApi: any;

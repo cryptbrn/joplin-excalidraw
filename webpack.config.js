@@ -11,7 +11,6 @@ const crypto = require('crypto');
 const fs = require('fs-extra');
 const chalk = require('chalk');
 const CopyPlugin = require('copy-webpack-plugin');
-const WebpackOnBuildPlugin = require('on-build-webpack');
 const tar = require('tar');
 const glob = require('glob');
 const execSync = require('child_process').execSync;
@@ -190,7 +189,22 @@ const createArchiveConfig = {
 		filename: 'index.js',
 		path: publishDir,
 	},
-	plugins: [new WebpackOnBuildPlugin(onBuildCompleted)],
+	resolve: {
+        fallback: {
+            "os": false,
+            "crypto": false,
+            "path": false
+        }
+	},
+	plugins: [
+	    {
+          apply: (compiler) => {
+            compiler.hooks.afterEmit.tap('AfterEmitPlugin', (compilation) => {
+              onBuildCompleted();
+            });
+          }
+        }
+	],
 };
 
 function resolveExtraScriptPath(name) {
@@ -235,8 +249,9 @@ function main(processArgv) {
 	const yargs = require('yargs/yargs');
 	const argv = yargs(processArgv).argv;
 
-	const configName = argv['joplin-plugin-config'];
-	if (!configName) throw new Error('A config file must be specified via the --joplin-plugin-config flag');
+	// Correct handling of the `--env.joplinPluginConfig` flag
+	const configName = argv.env?.split('=')[1];
+	if (!configName) throw new Error('A config file must be specified via the --env.joplinPluginConfig flag');
 
 	// Webpack configurations run in parallel, while we need them to run in
 	// sequence, and to do that it seems the only way is to run webpack multiple

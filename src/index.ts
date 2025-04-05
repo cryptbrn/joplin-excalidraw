@@ -1,17 +1,20 @@
 import joplin from 'api'
 import { v4 as uuidv4 } from 'uuid';
 
-import { ContentScriptType, ToolbarButtonLocation, MenuItem, MenuItemLocation } from 'api/types'
+import { ContentScriptType, ToolbarButtonLocation, MenuItem, MenuItemLocation, SettingItemType } from 'api/types'
 import { createDiagramResource, getDiagramResource, updateDiagramResource, clearDiskCache } from './resources';
 
 const Config = {
   ContentScriptId: 'excalidraw-script',
 }
 
-const buildDialogHTML = (diagramBody: string): string => {
+const buildDialogHTML = (diagramBody: string, theme: string): string => {
+  const diagramObject = JSON.parse(diagramBody);
+  diagramObject.appState.theme = theme;
+  const updatedDiagramBody = JSON.stringify(diagramObject);
   return `
 		<form name="main" style="display:none">
-			<input type="" name="excalidraw_diagram_json"  id="excalidraw_diagram_json" value='${diagramBody}'>
+			<input type="" name="excalidraw_diagram_json"  id="excalidraw_diagram_json" value='${updatedDiagramBody}'>
 		</form>
 		`
 }
@@ -20,7 +23,7 @@ function diagramMarkdown(diagramId: string) {
   return `![excalidraw](excalidraw://${diagramId})`
 }
 
-const openDialog = async (diagramId: string, isNewDiagram: boolean) => {
+const openDialog = async (diagramId: string, isNewDiagram: boolean, theme: string) => {
   let diagramBody = "{}";
   const appPath = await joplin.plugins.installationDir();
 
@@ -32,7 +35,7 @@ const openDialog = async (diagramId: string, isNewDiagram: boolean) => {
   let dialogs = joplin.views.dialogs;
   let diglogHandle = await dialogs.create(`excalidraw-dialog-${uuidv4()}`);
   
-  let header = buildDialogHTML(diagramBody);
+  let header = buildDialogHTML(diagramBody, theme);
   let iframe = `<iframe id="excalidraw_iframe" style="position:absolute;border:0;width:100%;height:100%;" src="${appPath}\\local-excalidraw\\index.html" title="description"></iframe>`
 
   await dialogs.setHtml(diglogHandle, header + iframe);
@@ -68,8 +71,33 @@ joplin.plugins.register({
       './contentScript.js'
     );
 
+    await joplin.settings.registerSection("excalidrawSettingSection", {
+      label: "Excalidraw",
+      iconName: "fas fa-palette",
+      description: `🔄 Please note that you have to restart Joplin for the changes to take effect.`
+    });
+
+    await joplin.settings.registerSettings({
+      theme: {
+        label: "Theme",
+        value: "light",
+        type: SettingItemType.String,
+        section: "excalidrawSettingSection",
+        isEnum: true,
+        public: true,
+        options: {
+          light: "Light",
+          dark: "Dark",
+        },
+        description:
+          "This option is only for setting the default theme in Excalidraw, you can still change the theme within the Excalidraw interface."
+      }
+    });
+
+    const theme = await joplin.settings.value("theme");
+
     await joplin.contentScripts.onMessage(Config.ContentScriptId, (message: any) => {
-      openDialog(message, false);
+      openDialog(message, false, theme);
     });
     
     await joplin.commands.register({
@@ -77,7 +105,7 @@ joplin.plugins.register({
       label: 'add excalidraw panel',
       iconName: 'icon-excalidraw-plus-icon-filled',
       execute: async () => {
-        openDialog("", true);
+        openDialog("", true, theme);
       }
     });
 
