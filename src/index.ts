@@ -8,13 +8,10 @@ const Config = {
   ContentScriptId: 'excalidraw-script',
 }
 
-const buildDialogHTML = (diagramBody: string, theme: string): string => {
-  const diagramObject = JSON.parse(diagramBody);
-  diagramObject.appState.theme = theme;
-  const updatedDiagramBody = JSON.stringify(diagramObject);
+const buildDialogHTML = (diagramBody: string): string => {
   return `
 		<form name="main" style="display:none">
-			<input type="" name="excalidraw_diagram_json"  id="excalidraw_diagram_json" value='${updatedDiagramBody}'>
+			<input type="" name="excalidraw_diagram_json"  id="excalidraw_diagram_json" value='${diagramBody}'>
 		</form>
 		`
 }
@@ -32,10 +29,15 @@ const openDialog = async (diagramId: string, isNewDiagram: boolean, theme: strin
     diagramBody = diagramResource.dataJson;
   }
 
+  const diagramObject = JSON.parse(diagramBody);
+  diagramObject.appState = diagramObject.appState || {};
+  diagramObject.appState.theme = theme;
+  diagramBody = JSON.stringify(diagramObject);
+
   let dialogs = joplin.views.dialogs;
   let diglogHandle = await dialogs.create(`excalidraw-dialog-${uuidv4()}`);
   
-  let header = buildDialogHTML(diagramBody, theme);
+  let header = buildDialogHTML(diagramBody);
   let iframe = `<iframe id="excalidraw_iframe" style="position:absolute;border:0;width:100%;height:100%;" src="${appPath}\\local-excalidraw\\index.html" title="description"></iframe>`
 
   await dialogs.setHtml(diglogHandle, header + iframe);
